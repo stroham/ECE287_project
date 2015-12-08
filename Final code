@@ -1,0 +1,1069 @@
+
+module pong(clk, rst, PS2_DAT, PS2_CLK, led0,led1, Button3, Button2, Button1, Button0,VGA_R, VGA_B, VGA_G,VGA_HS, VGA_VS, VGA_BLANK_N, VGA_CLK, VGA_SYNC_N, score, load,seed,seven_seg);
+
+  input  clk;
+  input Button0, Button1, Button2, Button3;
+  input   rst;
+  input [9:0]seed;
+  input load;  
+  output [7:0] VGA_R, VGA_B, VGA_G;
+  output VGA_HS, VGA_VS, VGA_BLANK_N, VGA_CLK, VGA_SYNC_N;
+  output [13:0]score;
+  output [6:0]seven_seg;
+  input PS2_DAT;
+  input PS2_CLK;
+  //inout  [35:0]  GPIO_0, GPIO_1;
+  wire [7:0] scan_code;
+  wire [7:0] scan_code1;
+  wire [9:0]rand_num;
+  wire [9:0]rand_num1,rand_num2,rand_num3, rand_num4, rand_num5;
+  output led0,led1;//had to rename these, wouldnt let me do --reg LEDG[8:0];
+  reg led0;
+  reg led1;
+  reg dummy0,dummy1;
+  
+  /////player 1 paddle
+    always @ (posedge clk)
+  begin
+	if(scan_code == 8'h1C)
+	begin
+	  led0 = 1'b1;
+	  dummy0=1'b1;
+	  end
+	else if(scan_code == 8'h23)
+	begin
+		led1=1'b1;
+		dummy1=1'b1;
+		end
+	else
+	begin
+	dummy0=1'b0;
+	dummy1=1'b0;
+	end
+	end
+  
+  
+
+//sends scan code to graphics portion of the code
+ Visual_Pong(clk, VGA_R,VGA_B,VGA_G,VGA_BLANK_N, VGA_SYNC_N , VGA_HS, VGA_VS, rst, VGA_CLK, Button3, Button2, Button1, Button0,dummy0,dummy1, score,load, seed, seven_seg);
+ 
+endmodule
+
+
+
+/////////////////////////////////////////////////
+//////////////                ///////////////////
+//////////////Graphics of PONG///////////////////
+/////////////                 ///////////////////
+/////////////////////////////////////////////////
+
+   
+	module Visual_Pong(clk, VGA_R,VGA_B,VGA_G,VGA_BLANK_N, VGA_SYNC_N , VGA_HS, VGA_VS, rst, VGA_CLK, Button3, Button2, Button1, Button0,dummy0,dummy1, score,load, seed, seven_seg);
+    output [13:0]score;
+    output [7:0] VGA_R, VGA_B, VGA_G;
+    output VGA_HS, VGA_VS, VGA_BLANK_N, VGA_CLK, VGA_SYNC_N;
+	 output [6:0]seven_seg;
+	 input dummy0,dummy1;
+	 input load;
+	 input [9:0]seed;
+    input clk, rst;
+	 input Button0, Button1, Button2, Button3;
+	 wire WireButton0, WireButton1, WireButton2, WireButton3;
+    wire CLK108;
+	 wire [30:0]X, Y;
+	 reg [31:0]P1In, P2In, P3In, P4In, P5In, P6In,P7In,P8In;
+	 reg [31:0]ballX, ballY;
+	 reg [4:0]score_get;
+	 reg [13:0]score;
+	 reg [9:0]rand_num;
+	 reg [9:0]rand_num1, rand_num2, rand_num3, rand_num4, rand_num5;
+	 reg [31:0]count1;
+	 reg [6:0]seven_seg;
+	 reg [2:0]life;
+	 reg [31:0]count_rand1;
+    reg [31:0]count_rand2;
+    reg [31:0]count_rand3;
+    reg [31:0]count_rand4;
+    reg [31:0]count_rand5;
+	 
+	 reg winCond=0;
+	 
+	 assign WireButton0=dummy0;
+	 assign WireButton1=Button1;
+	 assign WireButton2=Button2;
+	 assign WireButton3=Button3;	 
+	 assign refresh= (X==0)&&(Y==0);	 
+	 
+	//player parameters   										
+	localparam P2_L=31'd100;
+	localparam P2_R=31'd125;
+	localparam P2_T=31'd850;
+	localparam P2_B=31'd875;
+	assign Paddle2=((X>=(P2_L+P2In))&&(X<=(P2_R+P2In))&&(Y>=P2_T)&&(Y<=P2_B));
+
+		
+	//shot
+	localparam shot_L=31'd5;
+	localparam shot_R=31'd10;
+	localparam shot_T=31'd20;
+	localparam shot_B=31'd605;
+	assign shot=((X>=P2_L+P2In+shot_L)&&(X<=P2_L+P2In+shot_R)&&(Y>=P2_T+shot_T+P1In)&&(Y<=P2_B+P1In));
+	
+	//enemy1
+	localparam enemy1_L=31'd200;
+	localparam enemy1_R=31'd225;
+	localparam enemy1_T=31'd75;
+	localparam enemy1_B=31'd100;
+	assign enemy1=((X>=rand_num+enemy1_L)&&(X<=rand_num+enemy1_R)&&(Y>=enemy1_T+P3In)&&(Y<=enemy1_B+P3In));
+	
+	//enemy2
+   localparam enemy2_L=31'd400;
+   localparam enemy2_R=31'd425;
+	localparam enemy2_T=31'd75;
+	localparam enemy2_B=31'd100;
+	assign enemy2=((X>=rand_num1+enemy2_L)&&(X<=rand_num1+enemy2_R)&&(Y>=enemy2_T+P4In)&&(Y<=enemy2_B+P4In));
+	 
+	//enemy3
+   localparam enemy3_L=31'd500;
+   localparam enemy3_R=31'd525;
+	localparam enemy3_T=31'd75;
+	localparam enemy3_B=31'd100;
+	assign enemy3=((X>=rand_num2+enemy3_L)&&(X<=rand_num2+enemy3_R)&&(Y>=enemy3_T+P5In)&&(Y<=enemy3_B+P5In));
+
+	//enemy4
+   localparam enemy4_L=31'd300;
+   localparam enemy4_R=31'd325;
+	localparam enemy4_T=31'd75;
+	localparam enemy4_B=31'd100;
+	assign enemy4=((X>=rand_num3+enemy4_L)&&(X<=rand_num3+enemy4_R)&&(Y>=enemy4_T+P6In)&&(Y<=enemy4_B+P6In));
+
+	//enemy5
+   localparam enemy5_L=31'd120;
+   localparam enemy5_R=31'd145;
+	localparam enemy5_T=31'd75;
+	localparam enemy5_B=31'd100;
+	assign enemy5=((X>=rand_num4+enemy5_L)&&(X<=rand_num4+enemy5_R)&&(Y>=enemy5_T+P7In)&&(Y<=enemy5_B+P7In));
+
+	//enemy6
+   localparam enemy6_L=31'd250;
+   localparam enemy6_R=31'd275;
+	localparam enemy6_T=31'd75;
+	localparam enemy6_B=31'd100;
+	assign enemy6=((X>=rand_num5+enemy6_L)&&(X<=rand_num5+enemy6_R)&&(Y>=enemy6_T+P8In)&&(Y<=enemy6_B+P8In));
+
+
+	
+	 reg black;
+	
+    clock108(rst, clk, CLK_108, locked);
+
+    wire hblank, vblank, clkLine, blank;
+
+    H_SYNC(CLK_108, VGA_HS, hblank, clkLine, X);
+    V_SYNC(clkLine, VGA_VS, vblank, Y);
+	 
+
+
+    //drawing shapes	
+	 always@(*)
+		begin
+			if((Paddle2|shot|enemy1|enemy2|enemy3|enemy4|enemy5|enemy6)&&(life>3'd0))
+				black=1'b0;
+				else
+				black=1'b1;
+		end
+			
+	
+	
+	reg temp;
+	reg [31:0]count;
+	reg [31:0]count2;
+	reg [31:0]count3;
+	reg [31:0]count4;
+	reg [31:0]count5;
+	reg [31:0]count6;
+	reg [31:0]count_shot;
+
+	
+	
+
+	always@(posedge clk or posedge rst)	
+	begin
+	if(rst==1'b1)
+	   begin
+		  score_get<=5'd0;
+		  count<=31'd0;
+		  count2<=31'd0;
+		  count3<=31'd0;
+		  count4<=31'd0;
+		  count5<=31'd0;
+		  count6<=31'd0;
+		  count_shot<=31'd0;
+		  life<=3'd5;
+		  P3In<=31'd10;
+		  P4In<=31'd10;
+		  P5In<=31'd10;
+		  P6In<=31'd10;
+		  P7In<=31'd10;
+		  P8In<=31'd10;
+		end
+	else
+	begin
+				if(count>=31'd200010)
+					count<=0;
+				else
+					count<=count+1;
+			
+           			 if(count2>=31'd300010)
+					count2<=0;
+				else
+					count2<=count2+1;
+	     		
+				if(count3>=31'd400010)
+					count3<=0;
+				else
+					count3<=count3+1;
+				
+				if(count4>=31'd500010)
+					count4<=0;
+				else
+					count4<=count4+1;
+
+				if(count5>=31'd200010)
+					count5<=0;
+				else
+					count5<=count5+1;
+
+				if(count6>=31'd300010)
+					count6<=0;
+				else
+					count6<=count6+1;
+				
+				if((WireButton1==1'b0)||(count_shot>31'd10))
+				   count_shot<=count_shot+1;
+				else 
+	            count_shot<=0;
+			
+		
+				//player
+				if(WireButton3==1'b0 && count==31'd100000) // jimmy said to input a counter here
+					P2In<=P2In+31'd1;
+				else
+					temp<=temp;
+				
+				if(WireButton2==1'b0 && count==31'd100000)
+					P2In<=P2In-31'd1;	
+				else
+					temp<=temp;	
+			
+				if(P2In>31'd1200)
+					P2In<=31'd1200;
+				else
+					temp<=temp;
+		
+				if(P2In<31'd25)
+					P2In<=31'd25;	
+				else
+					temp<=temp;
+					
+				//shot
+				if(((WireButton1==1'b0)||(count_shot>31'd10)) && (count==31'd200000))
+					P1In<=P1In-31'd1;
+				else
+					temp<=temp;
+				
+				if((P2_B+P1In)<31'd50)
+				   P1In<=31'd5;
+				else
+				   temp<=temp;
+				
+				if((P2_B+P1In)<31'd50)
+				   count_shot<=31'd0;
+				else
+				   temp<=temp;
+				
+				
+				//shot enemy1(shot)
+				if(((P2_L+P2In+shot_L)> (enemy1_L+rand_num))&& ((P2_L+P2In+shot_L)< (enemy1_R+rand_num)) && ((P2_T+shot_T+P1In)> (enemy1_T+P3In))&& ((P2_B+P1In)<(enemy1_B+P3In)))
+					begin
+					P1In<=31'd10;
+					count_shot<=31'd0;
+					end
+				else
+				begin
+				   temp<=temp;
+				end
+				
+
+				//shot enemy2(shot)
+				if(((P2_L+P2In+shot_L)> (enemy2_L+rand_num1))&& ((P2_L+P2In+shot_L)< (enemy2_R+rand_num1)) && ((P2_T+shot_T+P1In)> (enemy2_T+P4In))&& ((P2_B+P1In)<(enemy2_B+P4In)))
+					begin
+					P1In<=31'd10;
+					count_shot<=31'd0;
+					end
+				else
+				begin
+				   temp<=temp;
+					end
+
+				//shot enemy3(shot)
+				if(((P2_L+P2In+shot_L)> (enemy3_L+rand_num2))&& ((P2_L+P2In+shot_L)< (enemy3_R+rand_num2)) && ((P2_T+shot_T+P1In)> (enemy3_T+P5In))&& ((P2_B+P1In)<(enemy3_B+P5In)))
+					begin
+					P1In<=31'd10;
+					count_shot<=31'd0;
+					end
+				else
+				begin
+				   temp<=temp;
+					end
+				
+				//shot enemy4(shot)
+				if(((P2_L+P2In+shot_L)> (enemy4_L+rand_num3))&& ((P2_L+P2In+shot_L)< (enemy4_R+rand_num3)) && ((P2_T+shot_T+P1In)> (enemy4_T+P6In))&& ((P2_B+P1In)<(enemy4_B+P6In)))
+					begin
+					P1In<=31'd10;
+					count_shot<=31'd0;
+					end
+				else
+				begin
+				   temp<=temp;
+					end
+
+				//shot enemy5(shot)
+				if(((P2_L+P2In+shot_L)> (enemy5_L+rand_num4))&& ((P2_L+P2In+shot_L)< (enemy5_R+rand_num4)) && ((P2_T+shot_T+P1In)> (enemy5_T+P7In))&& ((P2_B+P1In)<(enemy5_B+P7In)))
+					begin
+					P1In<=31'd10;
+					count_shot<=31'd0;
+					end
+				else
+				begin
+				   temp<=temp;
+					end
+
+				//shot enemy6(shot)
+				if(((P2_L+P2In+shot_L)> (enemy6_L+rand_num5))&& ((P2_L+P2In+shot_L)< (enemy6_R+rand_num5)) && ((P2_T+shot_T+P1In)> (enemy6_T+P8In))&& ((P2_B+P1In)<(enemy6_B+P8In)))
+					begin
+					P1In<=31'd10;
+					count_shot<=31'd0;
+					end
+				else
+				begin
+				   temp<=temp;
+					end
+					
+					
+				//enemy1
+				if((enemy1_B+P3In)<31'd925 && count==31'd200000)
+				   P3In<=P3In+31'd1;
+				else if((enemy1_B+P3In)==31'd925 && count==31'd200000)
+				   P3In<=31'd10;
+				else
+				   temp<=temp;
+				
+				//enemy2
+				if((enemy2_B+P4In)<31'd925 && count2==31'd300000)
+				   P4In<=P4In+31'd1;
+				else if((enemy2_B+P4In)==31'd925 && count2==31'd300000)
+				   P4In<=31'd10;
+				else
+				   temp<=temp;
+
+				//enemy3
+				if((enemy3_B+P5In)<31'd925 && count3==31'd400000)
+				   P5In<=P5In+31'd1;
+				else if((enemy3_B+P5In)==31'd925 && count3==31'd400000)
+				   P5In<=31'd10;
+				else
+				   temp<=temp;
+
+				//enemy4
+				if((enemy4_B+P6In)<31'd925 && count4==31'd500000)
+				   P6In<=P6In+31'd1;
+				else if((enemy4_B+P6In)==31'd925 && count4==31'd500000)
+				   P6In<=31'd10;
+				else
+				   temp<=temp;
+
+				//enemy5
+				if((enemy5_B+P7In)<31'd925 && count5==31'd200000)
+				   P7In<=P7In+31'd1;
+				else if((enemy5_B+P7In)==31'd925 && count5==31'd200000)
+				   P7In<=31'd10;
+				else
+				   temp<=temp;
+				
+				//enemy6
+				if((enemy6_B+P8In)<31'd925 && count6==31'd300000)
+				   P8In<=P8In+31'd1;
+				else if((enemy6_B+P8In)==31'd925 && count6==31'd300000)
+				   P8In<=31'd10;
+				else
+				   temp<=temp;
+				
+				
+				//shot enemy 1(enemy)
+				if(((P2_L+P2In+shot_L)> (rand_num+enemy1_L))&& ((P2_L+P2In+shot_L)< (rand_num+enemy1_R)) && ((P2_T+shot_T+P1In)> (enemy1_T+P3In))&& ((P2_B+P1In)<(enemy1_B+P3In)))
+				  P3In<=31'd10;
+				else
+				  temp<=temp;
+				
+				//shot enemy 2(enemy)
+				if(((P2_L+P2In+shot_L)> (rand_num1+enemy2_L))&& ((P2_L+P2In+shot_L)< (rand_num1+enemy2_R)) && ((P2_T+shot_T+P1In)> (enemy2_T+P4In))&& ((P2_B+P1In)<(enemy2_B+P4In)))
+				  P4In<=31'd10;
+				else
+				  temp<=temp;
+
+				//shot enemy 3(enemy)
+				if(((P2_L+P2In+shot_L)> (rand_num2+enemy3_L))&& ((P2_L+P2In+shot_L)< (rand_num2+enemy3_R)) && ((P2_T+shot_T+P1In)> (enemy3_T+P5In))&& ((P2_B+P1In)<(enemy3_B+P5In)))
+				  P5In<=31'd10;
+				else
+				  temp<=temp;
+
+				//shot enemy 4(enemy)
+				if(((P2_L+P2In+shot_L)> (rand_num3+enemy4_L))&& ((P2_L+P2In+shot_L)< (rand_num3+enemy4_R)) && ((P2_T+shot_T+P1In)> (enemy4_T+P6In))&& ((P2_B+P1In)<(enemy4_B+P6In)))
+				  P6In<=31'd10;
+				else
+				  temp<=temp;
+
+				//shot enemy 5(enemy)
+				if(((P2_L+P2In+shot_L)> (rand_num4+enemy5_L))&& ((P2_L+P2In+shot_L)< (rand_num4+enemy5_R)) && ((P2_T+shot_T+P1In)> (enemy5_T+P7In))&& ((P2_B+P1In)<(enemy5_B+P7In)))
+				  P7In<=31'd10;
+				else
+				  temp<=temp;
+
+				//shot enemy 6(enemy)
+				if(((P2_L+P2In+shot_L)> (rand_num5+enemy6_L))&& ((P2_L+P2In+shot_L)< (rand_num5+enemy6_R)) && ((P2_T+shot_T+P1In)> (enemy6_T+P8In))&& ((P2_B+P1In)<(enemy6_B+P8In)))
+				  P8In<=31'd10;
+				else
+				  temp<=temp;
+				
+				
+				
+				//score
+				if(((P2_L+P2In+shot_L)> (rand_num+enemy1_L))&& ((P2_L+P2In+shot_L)< (rand_num+enemy1_R)) && ((P2_T+shot_T+P1In)> (enemy1_T+P3In))&& ((P2_B+P1In)<(enemy1_B+P3In)))
+				  score_get<=score_get+5'd2;
+				
+				else if(((P2_L+P2In+shot_L)> (rand_num1+enemy2_L))&& ((P2_L+P2In+shot_L)< (rand_num1+enemy2_R)) && ((P2_T+shot_T+P1In)> (enemy2_T+P4In))&& ((P2_B+P1In)<(enemy2_B+P4In)))
+				  score_get<=score_get+5'd1;
+				
+				else if(((P2_L+P2In+shot_L)> (rand_num2+enemy3_L))&& ((P2_L+P2In+shot_L)< (rand_num2+enemy3_R)) && ((P2_T+shot_T+P1In)> (enemy3_T+P5In))&& ((P2_B+P1In)<(enemy3_B+P5In)))
+				  score_get<=score_get+5'd1;
+				
+				else if(((P2_L+P2In+shot_L)> (rand_num3+enemy4_L))&& ((P2_L+P2In+shot_L)< (rand_num3+enemy4_R)) && ((P2_T+shot_T+P1In)> (enemy4_T+P6In))&& ((P2_B+P1In)<(enemy4_B+P6In)))
+				  score_get<=score_get+5'd1;
+				
+				else if(((P2_L+P2In+shot_L)> (rand_num4+enemy5_L))&& ((P2_L+P2In+shot_L)< (rand_num4+enemy5_R)) && ((P2_T+shot_T+P1In)> (enemy5_T+P7In))&& ((P2_B+P1In)<(enemy5_B+P7In)))
+				  score_get<=score_get+5'd2;
+				
+				else if(((P2_L+P2In+shot_L)> (rand_num5+enemy6_L))&& ((P2_L+P2In+shot_L)< (rand_num5+enemy6_R)) && ((P2_T+shot_T+P1In)> (enemy6_T+P8In))&& ((P2_B+P1In)<(enemy6_B+P8In)))
+				  score_get<=score_get+5'd1;
+				
+			   else
+				   score_get<=score_get;
+					temp<=temp;
+					
+				//life
+				if (((((P2_L+P2In)<(rand_num+enemy1_L))&&((rand_num+enemy1_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num+enemy1_R))&&((rand_num+enemy1_R)>(P2_L+P2In))))&&((enemy1_B+P3In)>P2_T))
+				   life<=life-3'd1;
+					
+				else if  (((((P2_L+P2In)<(rand_num1+enemy2_L))&&((rand_num1+enemy2_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num1+enemy2_R))&&((rand_num1+enemy2_R)>(P2_L+P2In))))&&((enemy2_B+P4In)>P2_T))
+				   life<=life-3'd1;
+				else if  (((((P2_L+P2In)<(rand_num2+enemy3_L))&&((rand_num2+enemy3_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num2+enemy3_R))&&((rand_num2+enemy3_R)>(P2_L+P2In))))&&((enemy3_B+P5In)>P2_T))
+				   life<=life-3'd1;
+				else if  (((((P2_L+P2In)<(rand_num3+enemy4_L))&&((rand_num3+enemy4_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num3+enemy4_R))&&((rand_num3+enemy4_R)>(P2_L+P2In))))&&((enemy4_B+P6In)>P2_T))
+				   life<=life-3'd1;
+				else if  (((((P2_L+P2In)<(rand_num4+enemy5_L))&&((rand_num4+enemy5_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num4+enemy5_R))&&((rand_num4+enemy5_R)>(P2_L+P2In))))&&((enemy5_B+P7In)>P2_T))
+				   life<=life-3'd1;
+				else if  (((((P2_L+P2In)<(rand_num5+enemy6_L))&&((rand_num5+enemy6_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num5+enemy6_R))&&((rand_num5+enemy6_R)>(P2_L+P2In))))&&((enemy6_B+P8In)>P2_T))
+				   life<=life-3'd1;
+				else
+				   life<=life;
+
+				//when life gets to 0, reset enemy position
+				if (((((P2_L+P2In)<(rand_num+enemy1_L))&&((rand_num+enemy1_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num+enemy1_R))&&((rand_num+enemy1_R)>(P2_L+P2In))))&&((enemy1_B+P3In)>P2_T))
+				    P3In<=31'd10;
+					
+				else if  (((((P2_L+P2In)<(rand_num1+enemy2_L))&&((rand_num1+enemy2_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num1+enemy2_R))&&((rand_num1+enemy2_R)>(P2_L+P2In))))&&((enemy2_B+P4In)>P2_T))
+				    P4In<=31'd10;
+				else if  (((((P2_L+P2In)<(rand_num2+enemy3_L))&&((rand_num2+enemy3_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num2+enemy3_R))&&((rand_num2+enemy3_R)>(P2_L+P2In))))&&((enemy3_B+P5In)>P2_T))
+				   P5In<=31'd10;
+				else if  (((((P2_L+P2In)<(rand_num3+enemy4_L))&&((rand_num3+enemy4_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num3+enemy4_R))&&((rand_num3+enemy4_R)>(P2_L+P2In))))&&((enemy4_B+P6In)>P2_T))
+				    P6In<=31'd10;
+				else if  (((((P2_L+P2In)<(rand_num4+enemy5_L))&&((rand_num4+enemy5_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num4+enemy5_R))&&((rand_num4+enemy5_R)>(P2_L+P2In))))&&((enemy5_B+P7In)>P2_T))
+				    P7In<=31'd10;
+				else if  (((((P2_L+P2In)<(rand_num5+enemy6_L))&&((rand_num5+enemy6_L)<(P2_R+P2In)))|| (((P2_R+P2In)>(rand_num5+enemy6_R))&&((rand_num5+enemy6_R)>(P2_L+P2In))))&&((enemy6_B+P8In)>P2_T))
+				    P8In<=31'd10;
+				else
+				   temp<=temp;
+
+             
+				if(life==3'd0)
+				score_get<=5'd0;
+				else
+				temp<=temp;
+				//assign Paddle2=((X>=(P2_L+P2In))&&(X<=(P2_R+P2In))&&(Y>=P2_T)&&(Y<=P2_B));
+				//assign enemy1=((X>=rand_num+enemy1_L)&&(X<=rand_num+enemy1_R)&&(Y>=enemy1_T+P3In)&&(Y<=enemy1_B+P3In));
+	end
+	end
+	
+	 //score show
+	 always @(*)
+	 begin
+	  case(score_get)
+	 5'b00000: score=14'b11111111000000; //0
+	 5'b00001: score=14'b11111111111001; //1
+	 5'b00010: score=14'b11111110100100; //2
+	 5'b00011: score=14'b11111110110000; //3
+	 5'b00100: score=14'b11111110011001; //4
+	 5'b00101: score=14'b11111110010010; //5
+	 5'b00110: score=14'b11111110000010; //6
+	 5'b00111: score=14'b11111111111000; //7
+	 5'b01000: score=14'b11111110000000; //8
+	 5'b01001: score=14'b11111110011000; //9
+	 5'b01010: score=14'b11110011000000; //10
+	 5'b01011: score=14'b11110011111001; //11
+	 5'b01100: score=14'b11110010100100; //12
+	 5'b01101: score=14'b11110010110000; //13
+	 5'b01110: score=14'b11110010011001; //14
+	 5'b01111: score=14'b11110010010010; //15
+	 5'b10000: score=14'b11110010000010; //16
+	 5'b10001: score=14'b11110011111000; //17
+	 5'b10010: score=14'b11110000000000; //18
+	 5'b10011: score=14'b11110010011000; //19
+	 5'b10100: score=14'b01001001000000; //20
+	 5'b10101: score=14'b01001001111001; //21
+	 5'b10110: score=14'b01001000100100; //22
+	 5'b10111: score=14'b01001000110000; //23
+	 5'b11000: score=14'b01001000011001; //24
+	 5'b11001: score=14'b01001000010010; //25
+	 5'b11010: score=14'b01001000000010; //26
+	 5'b11011: score=14'b01001001111000; //27
+	 5'b11100: score=14'b01001000000000; //28
+	 5'b11101: score=14'b01001000011000; //29
+	 5'b11110: score=14'b01100001000000; //30
+	 endcase 
+	 
+	 //life show
+	 case(life)
+	 3'b000: seven_seg=7'b1000000; //0
+	 3'b001: seven_seg=7'b1111001; //1
+	 3'b010: seven_seg=7'b0100100; //2
+	 3'b011: seven_seg=7'b0110000; //3
+	 3'b100: seven_seg=7'b0011001; //4
+	 3'b101: seven_seg=7'b0010010; //5
+	 endcase
+	 
+	 
+	 end
+	
+	 
+	 
+	color(clk,VGA_R,VGA_B,VGA_G, black);
+    assign VGA_CLK = CLK_108;
+    assign VGA_BLANK_N = VGA_VS&VGA_HS;
+    assign VGA_SYNC_N = 1'b0;
+	 
+	
+
+
+	
+	 //random number
+	 always @(posedge clk or posedge rst)
+	 begin
+    if(rst==1'b1)
+	 begin
+        rand_num    <=10'b0;
+		  count1<=32'd0;
+		  end
+		  
+    else 
+	 begin
+	 	 		if((count1>=32'd160010000)&&((enemy1_B+P3In)>=31'd925))
+				begin
+					count1<=0;
+				end
+				if(count1<32'd160010000)
+				begin
+					count1<=count1+1;
+				end
+				
+	 if(load==1'b1)
+	 begin
+        rand_num <=seed;    /*load the initial value when load is active*/
+		  end
+	if((load==1'b0)&&(count1>=32'd160010000)&&((enemy1_B+P3In)>=31'd925))
+        begin
+            rand_num[0] <= rand_num[9];
+            rand_num[1] <= rand_num[0];
+            rand_num[2] <= rand_num[1];
+            rand_num[3] <= rand_num[2];
+            rand_num[4] <= rand_num[3]^rand_num[9];
+            rand_num[5] <= rand_num[4]^rand_num[9];
+            rand_num[6] <= rand_num[5]^rand_num[9];
+            rand_num[7] <= rand_num[6]^rand_num[9];
+				rand_num[8] <= rand_num[7]^rand_num[9];
+				rand_num[9] <= rand_num[8];
+        end
+            
+end
+end
+
+ //random number1
+ always @(posedge clk or posedge rst)
+	 begin
+    if(rst==1'b1)
+	 begin
+        rand_num1    <=10'd0;
+		  count_rand1<=32'd0;
+		  end
+		  
+    else 
+	 begin
+	 	 		if((count_rand1>=32'd160010000)&&((enemy2_B+P4In)>=31'd925))
+				begin
+					count_rand1<=0;
+				end
+				if(count_rand1<32'd160010000)
+				begin
+					count_rand1<=count_rand1+1;
+				end
+				
+	 if(load==1'b1)
+	 begin
+        rand_num1 <=seed;    /*load the initial value when load is active*/
+		  end
+	if((load==1'b0)&&(count_rand1>=32'd160010000)&&((enemy2_B+P4In)>=31'd925))
+        begin
+            rand_num1[0] <= rand_num1[9];
+            rand_num1[1] <= rand_num1[0];
+            rand_num1[2] <= rand_num1[1];
+            rand_num1[3] <= rand_num1[2];
+            rand_num1[4] <= rand_num1[3]^rand_num1[9];
+            rand_num1[5] <= rand_num1[4]^rand_num1[9];
+            rand_num1[6] <= rand_num1[5]^rand_num1[9];
+            rand_num1[7] <= rand_num1[6]^rand_num1[9];
+				rand_num1[8] <= rand_num1[7]^rand_num1[9];
+				rand_num1[9] <= rand_num1[8];
+        end
+            
+end
+end
+
+//random number2
+ always @(posedge clk or posedge rst)
+	 begin
+    if(rst==1'b1)
+	 begin
+        rand_num2    <=10'b0;
+		  count_rand2<=32'd0;
+		  end
+		  
+    else 
+	 begin
+	 	 		if((count_rand2>=32'd160010000)&&((enemy3_B+P5In)>=31'd925))
+				begin
+					count_rand2<=0;
+				end
+				if(count_rand2<32'd160010000)
+				begin
+					count_rand2<=count_rand2+1;
+				end
+				
+	 if(load==1'b1)
+	 begin
+        rand_num2 <=seed;    /*load the initial value when load is active*/
+		  end
+	if((load==1'b0)&&(count_rand2>=32'd160010000)&&((enemy3_B+P5In)>=31'd925))
+        begin
+            rand_num2[0] <= rand_num2[9];
+            rand_num2[1] <= rand_num2[0];
+            rand_num2[2] <= rand_num2[1];
+            rand_num2[3] <= rand_num2[2];
+            rand_num2[4] <= rand_num2[3]^rand_num2[9];
+            rand_num2[5] <= rand_num2[4]^rand_num2[9];
+            rand_num2[6] <= rand_num2[5]^rand_num2[9];
+            rand_num2[7] <= rand_num2[6]^rand_num2[9];
+				rand_num2[8] <= rand_num2[7]^rand_num2[9];
+				rand_num2[9] <= rand_num2[8];
+        end
+            
+end
+end
+	 
+	 
+//random number 3
+ always @(posedge clk or posedge rst)
+	 begin
+    if(rst==1'b1)
+	 begin
+        rand_num3    <=10'b0;
+		  count_rand3<=32'd0;
+		  end
+		  
+    else 
+	 begin
+	 	 		if((count_rand3>=32'd160010000)&&((enemy4_B+P6In)>=31'd925))
+				begin
+					count_rand3<=0;
+				end
+				if(count_rand3<32'd160010000)
+				begin
+					count_rand3<=count_rand3+1;
+				end
+				
+	 if(load==1'b1)
+	 begin
+        rand_num3 <=seed;    /*load the initial value when load is active*/
+		  end
+	if((load==1'b0)&&(count_rand3>=32'd160010000)&&((enemy4_B+P6In)>=31'd925))
+        begin
+            rand_num3[0] <= rand_num3[9];
+            rand_num3[1] <= rand_num3[0];
+            rand_num3[2] <= rand_num3[1];
+            rand_num3[3] <= rand_num3[2];
+            rand_num3[4] <= rand_num3[3]^rand_num3[9];
+            rand_num3[5] <= rand_num3[4]^rand_num3[9];
+            rand_num3[6] <= rand_num3[5]^rand_num3[9];
+            rand_num3[7] <= rand_num3[6]^rand_num3[9];
+				rand_num3[8] <= rand_num3[7]^rand_num3[9];
+				rand_num3[9] <= rand_num3[8];
+        end
+            
+end
+end
+
+//random number 4
+ always @(posedge clk or posedge rst)
+	 begin
+    if(rst==1'b1)
+	 begin
+        rand_num4    <=10'b0;
+		  count_rand4<=32'd0;
+		  end
+		  
+    else 
+	 begin
+	 	 		if((count_rand4>=32'd160010000)&&((enemy5_B+P7In)>=31'd925))
+				begin
+					count_rand4<=0;
+				end
+				if(count_rand4<32'd160010000)
+				begin
+					count_rand4<=count_rand4+1;
+				end
+				
+	 if(load==1'b1)
+	 begin
+        rand_num4 <=seed;    /*load the initial value when load is active*/
+		  end
+	if((load==1'b0)&&(count_rand4>=32'd160010000)&&((enemy5_B+P7In)>=31'd925))
+        begin
+            rand_num4[0] <= rand_num4[9];
+            rand_num4[1] <= rand_num4[0];
+            rand_num4[2] <= rand_num4[1];
+            rand_num4[3] <= rand_num4[2];
+            rand_num4[4] <= rand_num4[3]^rand_num4[9];
+            rand_num4[5] <= rand_num4[4]^rand_num4[9];
+            rand_num4[6] <= rand_num4[5]^rand_num4[9];
+            rand_num4[7] <= rand_num4[6]^rand_num4[9];
+				rand_num4[8] <= rand_num4[7]^rand_num4[9];
+				rand_num4[9] <= rand_num4[8];
+        end
+            
+end
+end
+
+//random number 5
+ always @(posedge clk or posedge rst)
+	 begin
+    if(rst==1'b1)
+	 begin
+        rand_num5    <=10'b0;
+		  count_rand5<=32'd0;
+		  end
+		  
+    else 
+	 begin
+	 	 		if((count_rand5>=32'd160010000)&&((enemy6_B+P8In)>=31'd925))
+				begin
+					count_rand5<=0;
+				end
+				if(count_rand5<32'd160010000)
+				begin
+					count_rand5<=count_rand5+1;
+				end
+				
+	 if(load==1'b1)
+	 begin
+        rand_num5 <=seed;    /*load the initial value when load is active*/
+		  end
+	if((load==1'b0)&&(count_rand5>=32'd160010000)&&((enemy6_B+P8In)>=31'd925))
+        begin
+            rand_num5[0] <= rand_num5[9];
+            rand_num5[1] <= rand_num5[0];
+            rand_num5[2] <= rand_num5[1];
+            rand_num5[3] <= rand_num5[2];
+            rand_num5[4] <= rand_num5[3]^rand_num5[9];
+            rand_num5[5] <= rand_num5[4]^rand_num5[9];
+            rand_num5[6] <= rand_num5[5]^rand_num5[9];
+            rand_num5[7] <= rand_num5[6]^rand_num5[9];
+				rand_num5[8] <= rand_num5[7]^rand_num5[9];
+				rand_num5[9] <= rand_num5[8];
+        end
+            
+end
+end
+endmodule
+
+
+
+module countingRefresh(X, Y, clk, count);
+input [31:0]X, Y;
+input clk;
+output [7:0]count;
+reg[7:0]count;
+always@(posedge clk)
+begin
+	if(X==0 &&Y==0)
+		count<=count+1;
+	else if(count==7'd11)
+		count<=0;
+	else
+		count<=count;
+end
+
+endmodule
+
+module color(clk, red, blue, green, black);
+     input clk, black;
+    output [7:0] red, blue, green;
+	 reg[7:0] red, green, blue;
+	always@(*)
+	begin
+		if(black==1'b1)
+		begin
+		 red = 8'd0;
+		 blue = 8'd0;
+		 green = 8'd0;
+		end 
+		else
+		begin
+		 red = 8'd255;
+		 blue = 8'd255;
+		 green = 8'd255;
+		end
+	end 
+
+	 
+endmodule
+
+module H_SYNC(clk, hout, bout, newLine, Xcount);
+
+    input clk;
+    output hout, bout, newLine;
+	 output [31:0] Xcount;
+	 
+	
+    reg [31:0] count = 32'd0;
+    reg hsync, blank, new1;
+
+    always @(posedge clk) begin
+        if (count <  1688)
+            count <= Xcount + 1;
+        else 
+            count <= 0;
+    end 
+
+    always @(*) begin
+        if (count == 0)
+            new1 = 1;
+        else
+            new1 = 0;
+    end 
+
+    always @(*) begin
+        if (count > 1279) 
+            blank = 1;
+        else 
+            blank = 0;
+    end
+
+    always @(*) begin
+        if (count < 1328)
+            hsync = 1;
+        else if (count > 1327 && count < 1440)
+            hsync = 0;
+        else    
+            hsync = 1;
+        end
+    assign Xcount=count;
+    assign hout = hsync;
+    assign bout = blank;
+    assign newLine = new1;
+
+endmodule
+
+module V_SYNC(clk, vout, bout, Ycount);
+
+    input clk;
+    output vout, bout;
+    output [31:0]Ycount; 
+	  
+    reg [31:0] count = 32'd0;
+    reg vsync, blank;
+
+    always @(posedge clk) begin
+        if (count <  1066)
+            count <= Ycount + 1;
+        else 
+            count <= 0;
+    end 
+
+    always @(*) begin
+        if (count < 1024) 
+            blank = 1;
+        else 
+            blank = 0;
+    end
+
+    always @(*) begin
+        if (count < 1025)
+            vsync = 1;
+        else if (count > 1024 && count < 1028)
+            vsync = 0;
+        else    
+            vsync = 1;
+        end
+    assign Ycount=count;
+    assign vout = vsync;
+    assign bout = blank;
+
+endmodule
+
+ //synopsys translate_off
+`timescale 1 ps / 1 ps
+ //synopsys translate_on
+module clock108 (areset, inclk0, c0, locked);
+
+    input     areset;
+    input     inclk0;
+    output    c0;
+    output    locked;
+
+`ifndef ALTERA_RESERVED_QIS
+ //synopsys translate_off
+`endif
+
+tri0      areset;
+
+`ifndef ALTERA_RESERVED_QIS
+ //synopsys translate_on
+`endif
+
+    wire [0:0] sub_wire2 = 1'h0;
+    wire [4:0] sub_wire3;
+    wire  sub_wire5;
+    wire  sub_wire0 = inclk0;
+    wire [1:0] sub_wire1 = {sub_wire2, sub_wire0};
+    wire [0:0] sub_wire4 = sub_wire3[0:0];
+    wire  c0 = sub_wire4;
+    wire  locked = sub_wire5;
+
+	 
+	 
+altpll  altpll_component (
+            .areset (areset),
+            .inclk (sub_wire1),
+            .clk (sub_wire3),
+            .locked (sub_wire5),
+            .activeclock (),
+            .clkbad (),
+            .clkena ({6{1'b1}}),
+            .clkloss (),
+            .clkswitch (1'b0),
+            .configupdate (1'b0),
+            .enable0 (),
+            .enable1 (),
+            .extclk (),
+            .extclkena ({4{1'b1}}),
+            .fbin (1'b1),
+            .fbmimicbidir (),
+            .fbout (),
+            .fref (),
+            .icdrclk (),
+            .pfdena (1'b1),
+            .phasecounterselect ({4{1'b1}}),
+            .phasedone (),
+            .phasestep (1'b1),
+            .phaseupdown (1'b1),
+            .pllena (1'b1),
+            .scanaclr (1'b0),
+            .scanclk (1'b0),
+            .scanclkena (1'b1),
+            .scandata (1'b0),
+            .scandataout (),
+            .scandone (),
+            .scanread (1'b0),
+            .scanwrite (1'b0),
+            .sclkout0 (),
+            .sclkout1 (),
+            .vcooverrange (),
+            .vcounderrange ());
+defparam
+    altpll_component.bandwidth_type = "AUTO",
+    altpll_component.clk0_divide_by = 25,
+    altpll_component.clk0_duty_cycle = 50,
+    altpll_component.clk0_multiply_by = 54,
+    altpll_component.clk0_phase_shift = "0",
+    altpll_component.compensate_clock = "CLK0",
+    altpll_component.inclk0_input_frequency = 20000,
+    altpll_component.intended_device_family = "Cyclone IV E",
+    altpll_component.lpm_hint = "CBX_MODULE_PREFIX=clock108",
+    altpll_component.lpm_type = "altpll",
+    altpll_component.operation_mode = "NORMAL",
+    altpll_component.pll_type = "AUTO",
+    altpll_component.port_activeclock = "PORT_UNUSED",
+    altpll_component.port_areset = "PORT_USED",
+    altpll_component.port_clkbad0 = "PORT_UNUSED",
+    altpll_component.port_clkbad1 = "PORT_UNUSED",
+    altpll_component.port_clkloss = "PORT_UNUSED",
+    altpll_component.port_clkswitch = "PORT_UNUSED",
+    altpll_component.port_configupdate = "PORT_UNUSED",
+    altpll_component.port_fbin = "PORT_UNUSED",
+    altpll_component.port_inclk0 = "PORT_USED",
+    altpll_component.port_inclk1 = "PORT_UNUSED",
+    altpll_component.port_locked = "PORT_USED",
+    altpll_component.port_pfdena = "PORT_UNUSED",
+    altpll_component.port_phasecounterselect = "PORT_UNUSED",
+    altpll_component.port_phasedone = "PORT_UNUSED",
+    altpll_component.port_phasestep = "PORT_UNUSED",
+    altpll_component.port_phaseupdown = "PORT_UNUSED",
+    altpll_component.port_pllena = "PORT_UNUSED",
+    altpll_component.port_scanaclr = "PORT_UNUSED",
+    altpll_component.port_scanclk = "PORT_UNUSED",
+    altpll_component.port_scanclkena = "PORT_UNUSED",
+    altpll_component.port_scandata = "PORT_UNUSED",
+    altpll_component.port_scandataout = "PORT_UNUSED",
+    altpll_component.port_scandone = "PORT_UNUSED",
+    altpll_component.port_scanread = "PORT_UNUSED",
+    altpll_component.port_scanwrite = "PORT_UNUSED",
+    altpll_component.port_clk0 = "PORT_USED",
+    altpll_component.port_clk1 = "PORT_UNUSED",
+    altpll_component.port_clk2 = "PORT_UNUSED",
+    altpll_component.port_clk3 = "PORT_UNUSED",
+    altpll_component.port_clk4 = "PORT_UNUSED",
+    altpll_component.port_clk5 = "PORT_UNUSED",
+    altpll_component.port_clkena0 = "PORT_UNUSED",
+    altpll_component.port_clkena1 = "PORT_UNUSED",
+    altpll_component.port_clkena2 = "PORT_UNUSED",
+    altpll_component.port_clkena3 = "PORT_UNUSED",
+    altpll_component.port_clkena4 = "PORT_UNUSED",
+    altpll_component.port_clkena5 = "PORT_UNUSED",
+    altpll_component.port_extclk0 = "PORT_UNUSED",
+    altpll_component.port_extclk1 = "PORT_UNUSED",
+    altpll_component.port_extclk2 = "PORT_UNUSED",
+    altpll_component.port_extclk3 = "PORT_UNUSED",
+    altpll_component.self_reset_on_loss_lock = "OFF",
+    altpll_component.width_clock = 5;
+
+
+endmodule
