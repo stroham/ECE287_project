@@ -1,0 +1,469 @@
+	311	+	/////////////////////////////////////////////////
+312	+	//////////////                ///////////////////
+313	+	//////////////Graphics of PONG///////////////////
+314	+	/////////////                 ///////////////////
+315	+	/////////////////////////////////////////////////
+316	+	
+317	+	
+318	+		module Visual_Pong(clk, VGA_R,VGA_B,VGA_G,VGA_BLANK_N, VGA_SYNC_N , VGA_HS, VGA_VS, rst, VGA_CLK, Button3, Button2, Button1, Button0,dummy0,dummy1);
+319	+	
+320	+	    output [7:0] VGA_R, VGA_B, VGA_G;
+321	+	    output VGA_HS, VGA_VS, VGA_BLANK_N, VGA_CLK, VGA_SYNC_N;
+322	+		 input dummy0,dummy1;
+323	+	    input clk, rst;
+324	+		 input Button0, Button1, Button2, Button3;
+325	+		 wire WireButton0, WireButton1, WireButton2, WireButton3;
+326	+	    wire CLK108;
+327	+		 wire [30:0]X, Y;
+328	+		 reg [31:0]P1In, P2In;
+329	+		 reg [31:0]ballX, ballY;
+330	+	
+331	+		 reg winCond=0;
+332	+	
+333	+		 assign WireButton0=dummy0;
+334	+		 assign WireButton1=dummy1;
+335	+		 assign WireButton2=Button2;
+336	+		 assign WireButton3=Button3;
+337	+		 assign refresh= (X==0)&&(Y==0);
+338	+	
+339	+		 //paddle 1's parameters
+340	+		 localparam P1_L=31'd100;
+341	+		 localparam P1_R=31'd125;
+342	+		 localparam P1_T=31'd75; //P1In
+343	+		 localparam P1_B=31'd100+P1_T; //P1In
+344	+		 assign Paddle1=((X>=P1_L)&&(X<=P1_R)&&(Y>=(P1_T+P1In))&&(Y<=(P1In+P1_B)));
+345	+	
+346	+		//paddle 2 parameters
+347	+		localparam P2_L=31'd1125;
+348	+		localparam P2_R=31'd1150;
+349	+		localparam P2_T=31'd75;
+350	+		localparam P2_B=31'd100+P2_T;
+351	+		assign Paddle2=((X>=P2_L)&&(X<=P2_R)&&(Y>=(P2_T+P2In))&&(Y<=(P2_B+P2In)));
+352	+	
+353	+		//Ball_Parameters
+354	+		localparam Ball_L= 31'd100;
+355	+		localparam Ball_R= Ball_L+31'd20;
+356	+		localparam Ball_T= 31'd75 ;
+357	+		localparam Ball_B=Ball_T+31'd20;
+358	+		assign Ball=((X>=Ball_L + ballX)&&(X<=Ball_R + ballX)&&(Y>=Ball_T+ ballY)&&(Y<=Ball_B+ ballY));
+359	+		reg ballDirectionX=1;
+360	+		reg ballDirectionY=1;
+361	+	
+362	+		 reg black;
+363	+	
+364	+	    clock108(rst, clk, CLK_108, locked);
+365	+	
+366	+	    wire hblank, vblank, clkLine, blank;
+367	+	
+368	+	    H_SYNC(CLK_108, VGA_HS, hblank, clkLine, X);
+369	+	    V_SYNC(clkLine, VGA_VS, vblank, Y);
+370	+	
+371	+	
+372	+	    //drawing shapes
+373	+		 always@(*)
+374	+			begin
+375	+				if(Paddle1 | Paddle2| Ball)//Paddle1
+376	+					black=1'b0;
+377	+				else
+378	+					black=1'b1;
+379	+			end
+380	+	
+381	+	
+382	+	
+383	+		reg temp;
+384	+		reg [31:0]count;
+385	+	
+386	+	
+387	+		always@(posedge clk)
+388	+		begin
+389	+					if(count>=31'd100010)
+390	+						count<=0;
+391	+					else
+392	+						count<=count+1;
+393	+	
+394	+					//Paddle1
+395	+					if(WireButton0==1'b0 && count==31'd100000) // jimmy said to input a counter here
+396	+						P1In<=P1In+31'd1;
+397	+					else
+398	+						temp<=temp;
+399	+	
+400	+					if(WireButton1==1'b0 && count==31'd100000)
+401	+						P1In<=P1In-31'd1;
+402	+					else
+403	+						temp<=temp;
+404	+	
+405	+					if(P1In>31'd700)
+406	+						P1In<=31'd700;
+407	+					else
+408	+						temp<=temp;
+409	+	
+410	+					if(P1In<31'd25)
+411	+						P1In<=31'd25;
+412	+					else
+413	+						temp<=temp;
+414	+	
+415	+	
+416	+					//paddle2
+417	+					if(WireButton3==1'b0 && count==31'd100000) // jimmy said to input a counter here
+418	+						P2In<=P2In+31'd1;
+419	+					else
+420	+						temp<=temp;
+421	+	
+422	+					if(WireButton2==1'b0 && count==31'd100000)
+423	+						P2In<=P2In-31'd1;
+424	+					else
+425	+						temp<=temp;
+426	+	
+427	+					if(P2In>31'd700)
+428	+						P2In<=31'd700;
+429	+					else
+430	+						temp<=temp;
+431	+	
+432	+					if(P2In<31'd25)
+433	+						P2In<=31'd25;
+434	+					else
+435	+						temp<=temp;
+436	+	
+437	+	
+438	+	
+439	+	
+440	+	
+441	+					//ball movement
+442	+					if(count==31'd100000)
+443	+						begin
+444	+							//ball in X direction
+445	+							if(winCond && WireButton0 && WireButton1 && WireButton2 && WireButton3)
+446	+								begin
+447	+									ballX<=31'd500;
+448	+									P1In<=31'd350;
+449	+									P2In<=31'd350;
+450	+								end
+451	+							else if(ballDirectionX)
+452	+								begin
+453	+									ballX<=ballX+1;
+454	+									winCond<=0;
+455	+								end
+456	+							else
+457	+								begin
+458	+									ballX<=ballX-1;
+459	+									winCond<=0;
+460	+								end
+461	+	
+462	+							if(ballX>=31'd1005 && ((P2In)<=(ballY+31'd10)) &&(P2In+31'd100)>=(ballY+31'd10) &&~winCond)
+463	+								begin
+464	+									ballX<=31'd1004;
+465	+									ballDirectionX<=1'b0;
+466	+								end
+467	+							else if(ballX>=31'd1005)
+468	+								winCond<=1;
+469	+							else
+470	+								temp<=temp;
+471	+	
+472	+							if(winCond)
+473	+								temp<=temp;
+474	+							else if(ballX<=31'd25 && ((P1In)<=(ballY+31'd10)) &&(P1In+31'd100)>=(ballY+31'd10) && ~winCond)
+475	+								begin
+476	+									ballX<=31'd26;
+477	+									ballDirectionX<=1'b1;
+478	+								end
+479	+							else if(ballX<=31'd20)
+480	+								begin
+481	+									winCond<=1;
+482	+								end
+483	+							else
+484	+								temp<=temp;
+485	+	
+486	+							//ball in y direction
+487	+							if(winCond && WireButton0 && WireButton1 && WireButton2 && WireButton3)
+488	+							begin
+489	+								ballY<=31'd400;
+490	+							end
+491	+	                  else if(ballDirectionY)
+492	+							begin
+493	+								ballY<=ballY+1;
+494	+							end
+495	+							else
+496	+							begin
+497	+								ballY<=ballY-1;
+498	+							end
+499	+							if(ballY>=31'd800)
+500	+								begin
+501	+									ballY<=31'd799;
+502	+									ballDirectionY<=1'b0;
+503	+								end
+504	+							else
+505	+								temp<=temp;
+506	+							if(ballY<=31'd50)
+507	+								begin
+508	+									ballY<=31'd51;
+509	+									ballDirectionY<=1;
+510	+								end
+511	+							else
+512	+								temp<=temp;
+513	+	
+514	+	
+515	+						end
+516	+					else
+517	+						temp<=temp;
+518	+	
+519	+		end
+520	+	
+521	+		color(clk,VGA_R,VGA_B,VGA_G, black);
+522	+	    assign VGA_CLK = CLK_108;
+523	+	    assign VGA_BLANK_N = VGA_VS&VGA_HS;
+524	+	    assign VGA_SYNC_N = 1'b0;
+525	+	
+526	+	
+527	+	endmodule
+528	+	
+529	+	module countingRefresh(X, Y, clk, count);
+530	+	input [31:0]X, Y;
+531	+	input clk;
+532	+	output [7:0]count;
+533	+	reg[7:0]count;
+534	+	always@(posedge clk)
+535	+	begin
+536	+		if(X==0 &&Y==0)
+537	+			count<=count+1;
+538	+		else if(count==7'd11)
+539	+			count<=0;
+540	+		else
+541	+			count<=count;
+542	+	end
+543	+	
+544	+	endmodule
+545	+	
+546	+	module color(clk, red, blue, green, black);
+547	+	     input clk, black;
+548	+	    output [7:0] red, blue, green;
+549	+		 reg[7:0] red, green, blue;
+550	+		always@(*)
+551	+		begin
+552	+			if(black==1'b1)
+553	+			begin
+554	+			 red = 8'd0;
+555	+			 blue = 8'd0;
+556	+			 green = 8'd0;
+557	+			end
+558	+			else
+559	+			begin
+560	+			 red = 8'd255;
+561	+			 blue = 8'd255;
+562	+			 green = 8'd255;
+563	+			end
+564	+		end
+565	+	
+566	+	
+567	+	endmodule
+568	+	
+569	+	module H_SYNC(clk, hout, bout, newLine, Xcount);
+570	+	
+571	+	    input clk;
+572	+	    output hout, bout, newLine;
+573	+		 output [31:0] Xcount;
+574	+	
+575	+	
+576	+	    reg [31:0] count = 32'd0;
+577	+	    reg hsync, blank, new1;
+578	+	
+579	+	    always @(posedge clk) begin
+580	+	        if (count <  1688)
+581	+	            count <= Xcount + 1;
+582	+	        else
+583	+	            count <= 0;
+584	+	    end
+585	+	
+586	+	    always @(*) begin
+587	+	        if (count == 0)
+588	+	            new1 = 1;
+589	+	        else
+590	+	            new1 = 0;
+591	+	    end
+592	+	
+593	+	    always @(*) begin
+594	+	        if (count > 1279)
+595	+	            blank = 1;
+596	+	        else
+597	+	            blank = 0;
+598	+	    end
+599	+	
+600	+	    always @(*) begin
+601	+	        if (count < 1328)
+602	+	            hsync = 1;
+603	+	        else if (count > 1327 && count < 1440)
+604	+	            hsync = 0;
+605	+	        else
+606	+	            hsync = 1;
+607	+	        end
+608	+	    assign Xcount=count;
+609	+	    assign hout = hsync;
+610	+	    assign bout = blank;
+611	+	    assign newLine = new1;
+612	+	
+613	+	endmodule
+614	+	
+615	+	module V_SYNC(clk, vout, bout, Ycount);
+616	+	
+617	+	    input clk;
+618	+	    output vout, bout;
+619	+	    output [31:0]Ycount;
+620	+	
+621	+	    reg [31:0] count = 32'd0;
+622	+	    reg vsync, blank;
+623	+	
+624	+	    always @(posedge clk) begin
+625	+	        if (count <  1066)
+626	+	            count <= Ycount + 1;
+627	+	        else
+628	+	            count <= 0;
+629	+	    end
+630	+	
+631	+	    always @(*) begin
+632	+	        if (count < 1024)
+633	+	            blank = 1;
+634	+	        else
+635	+	            blank = 0;
+636	+	    end
+637	+	
+638	+	    always @(*) begin
+639	+	        if (count < 1025)
+640	+	            vsync = 1;
+641	+	        else if (count > 1024 && count < 1028)
+642	+	            vsync = 0;
+643	+	        else
+644	+	            vsync = 1;
+645	+	        end
+646	+	    assign Ycount=count;
+647	+	    assign vout = vsync;
+648	+	    assign bout = blank;
+649	+	
+650	+	endmodule
+651	+	
+652	+	 //synopsys translate_off
+653	+	`timescale 1 ps / 1 ps
+654	+	 //synopsys translate_on
+655	+	module clock108 (areset, inclk0, c0, locked);
+656	+	
+657	+	    input     areset;
+658	+	    input     inclk0;
+659	+	    output    c0;
+660	+	    output    locked;
+661	+	
+662	+	`ifndef ALTERA_RESERVED_QIS
+663	+	 //synopsys translate_off
+664	+	`endif
+665	+	
+666	+	tri0      areset;
+667	+	
+668	+	`ifndef ALTERA_RESERVED_QIS
+669	+	 //synopsys translate_on
+670	+	`endif
+671	+	
+672	+	    wire [0:0] sub_wire2 = 1'h0;
+673	+	    wire [4:0] sub_wire3;
+674	+	    wire  sub_wire5;
+675	+	    wire  sub_wire0 = inclk0;
+676	+	    wire [1:0] sub_wire1 = {sub_wire2, sub_wire0};
+677	+	    wire [0:0] sub_wire4 = sub_wire3[0:0];
+678	+	    wire  c0 = sub_wire4;
+679	+	    wire  locked = sub_wire5;
+680	+	
+681	+	
+682	+	
+683	+	altpll  altpll_component (
+684	+	            .areset (areset),
+685	+	            .inclk (sub_wire1),
+686	+	            .clk (sub_wire3),
+687	+	            .locked (sub_wire5),
+688	+	            .activeclock (),
+689	+	            .clkbad (),
+690	+	            .clkena ({6{1'b1}}),
+691	+	            .clkloss (),
+692	+	            .clkswitch (1'b0),
+693	+	            .configupdate (1'b0),
+694	+	            .enable0 (),
+695	+	            .enable1 (),
+696	+	            .extclk (),
+697	+	            .extclkena ({4{1'b1}}),
+698	+	            .fbin (1'b1),
+699	+	            .fbmimicbidir (),
+700	+	            .fbout (),
+701	+	            .fref (),
+702	+	            .icdrclk (),
+703	+	            .pfdena (1'b1),
+704	+	            .phasecounterselect ({4{1'b1}}),
+705	+	            .phasedone (),
+706	+	            .phasestep (1'b1),
+707	+	            .phaseupdown (1'b1),
+708	+	            .pllena (1'b1),
+709	+	            .scanaclr (1'b0),
+710	+	            .scanclk (1'b0),
+711	+	            .scanclkena (1'b1),
+712	+	            .scandata (1'b0),
+713	+	            .scandataout (),
+714	+	            .scandone (),
+715	+	            .scanread (1'b0),
+716	+	            .scanwrite (1'b0),
+717	+	            .sclkout0 (),
+718	+	            .sclkout1 (),
+719	+	            .vcooverrange (),
+720	+	            .vcounderrange ());
+721	+	defparam
+722	+	    altpll_component.bandwidth_type = "AUTO",
+723	+	    altpll_component.clk0_divide_by = 25,
+724	+	    altpll_component.clk0_duty_cycle = 50,
+725	+	    altpll_component.clk0_multiply_by = 54,
+726	+	    altpll_component.clk0_phase_shift = "0",
+727	+	    altpll_component.compensate_clock = "CLK0",
+728	+	    altpll_component.inclk0_input_frequency = 20000,
+729	+	    altpll_component.intended_device_family = "Cyclone IV E",
+730	+	    altpll_component.lpm_hint = "CBX_MODULE_PREFIX=clock108",
+731	+	    altpll_component.lpm_type = "altpll",
+732	+	    altpll_component.operation_mode = "NORMAL",
+733	+	    altpll_component.pll_type = "AUTO",
+734	+	    altpll_component.port_activeclock = "PORT_UNUSED",
+735	+	    altpll_component.port_areset = "PORT_USED",
+736	+	    altpll_component.port_clkbad0 = "PORT_UNUSED",
+737	+	    altpll_component.port_clkbad1 = "PORT_UNUSED",
+738	+	    altpll_component.port_clkloss = "PORT_UNUSED",
+739	+	    altpll_component.port_clkswitch = "PORT_UNUSED",
+740	+	    altpll_component.port_configupdate = "PORT_UNUSED",
+741	+	    altpll_component.port_fbin = "PORT_UNUSED",
+742	+	    altpll_component.port_inclk0 = "PORT_USED",
+743	+	    altpll_component.port_inclk1 = "PORT_UNUSED",
+744	+	    altpll_component.port_locked = "PORT_USED",
+745	+	    altpll_component.port_pfdena = "PORT_UNUSED",
+746	+	    altpll_component.port_phasecounterselect = "PORT_UNUSED",
+747	+	    altpll_component.port_phasedone = "PORT_UNUSED",
+748	+	    altpll_component.port_phasestep = "PORT_UNUSED",
+749	+	    altpll_component.port_phaseupdown = "PORT_UNUSED",
+750	+	    altpll_component.port_pllena = "PORT_UNUSED",
+751	+	    altpll_component.port_scanaclr = "PORT_UNUSED",
+752	+	    altpll_component.port_scanclk = "PORT_UNUSED",
+753	+	    altpll_component.port_scanclkena = "PORT_UNUSED",
+754	+	    altpll_component.port_scandata = "PORT_UNUSED",
+755	+	    altpll_component.port_scandataout = "PORT_UNUSED",
+756	+	    altpll_component.port_scandone = "PORT_UNUSED",
+757	+	    altpll_component.port_scanread = "PORT_UNUSED",
+758	+	    altpll_component.port_scanwrite = "PORT_UNUSED",
+759	+	    altpll_component.port_clk0 = "PORT_USED",
+760	+	    altpll_component.port_clk1 = "PORT_UNUSED",
+761	+	    altpll_component.port_clk2 = "PORT_UNUSED",
+762	+	    altpll_component.port_clk3 = "PORT_UNUSED",
+763	+	    altpll_component.port_clk4 = "PORT_UNUSED",
+764	+	    altpll_component.port_clk5 = "PORT_UNUSED",
+765	+	    altpll_component.port_clkena0 = "PORT_UNUSED",
+766	+	    altpll_component.port_clkena1 = "PORT_UNUSED",
+767	+	    altpll_component.port_clkena2 = "PORT_UNUSED",
+768	+	    altpll_component.port_clkena3 = "PORT_UNUSED",
+769	+	    altpll_component.port_clkena4 = "PORT_UNUSED",
+770	+	    altpll_component.port_clkena5 = "PORT_UNUSED",
+771	+	    altpll_component.port_extclk0 = "PORT_UNUSED",
+772	+	    altpll_component.port_extclk1 = "PORT_UNUSED",
+773	+	    altpll_component.port_extclk2 = "PORT_UNUSED",
+774	+	    altpll_component.port_extclk3 = "PORT_UNUSED",
+775	+	    altpll_component.self_reset_on_loss_lock = "OFF",
+776	+	    altpll_component.width_clock = 5;
+777	+	
+778	+	
+779	+	endmodule
